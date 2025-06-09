@@ -1,14 +1,17 @@
 import cv2
+import ultralytics
 from ultralytics import YOLO
 from tqdm import tqdm
+import subprocess
 
-def detect_people_in_video(input_path: str, output_path: str):
+def detect_people_in_video(input_path: str, output_path: str, confidence: float):
     """
     Обнаруживает людей на видео и сохраняет результат в выходной файл.
 
     Args:
         input_path (str): Путь к входному видеофайлу.
         output_path (str): Путь к выходному видеофайлу.
+        confidence (float): Пороговый уровень уверенности модели.
     """
     # Загрузка предобученной модели YOLOv8
     model = YOLO("yolov8s.pt")  # 's' означает small модель
@@ -33,15 +36,9 @@ def detect_people_in_video(input_path: str, output_path: str):
         ret, frame = cap.read()
         if not ret:
             break
-
         # Детекция объектов
-        #results = model(frame)
-        results = model(frame, classes=[0], conf=0.5)  # <-- фильтрация по классу "person", уверенность > 0.5
-
-        # Отрисовка результатов
+        results = model(frame, classes=[0], conf=confidence)  # <-- фильтрация по классу "person", уверенность > confidence
         annotated_frame = results[0].plot()
-
-        # Запись обработанного кадра
         out.write(annotated_frame)
 
     # Освобождение ресурсов
@@ -49,8 +46,20 @@ def detect_people_in_video(input_path: str, output_path: str):
     out.release()
     print(f"Видео успешно сохранено: {output_path}")
 
-
 if __name__ == "__main__":
     INPUT_VIDEO_PATH = "data/crowd.mp4"
     OUTPUT_VIDEO_PATH = "results/output_crowd_detected_person_05.mp4"
-    detect_people_in_video(INPUT_VIDEO_PATH, OUTPUT_VIDEO_PATH)
+    FINAL_OUTPUT = "results/output_optimized.mp4"
+
+    detect_people_in_video(INPUT_VIDEO_PATH, OUTPUT_VIDEO_PATH, 0.5)
+
+    print("Сжатие видео...")
+    subprocess.run([
+        'ffmpeg',
+        '-i', OUTPUT_VIDEO_PATH,
+        '-vcodec', 'libx264',
+        '-crf', '28',
+        FINAL_OUTPUT
+    ])
+
+    print(f"Финальное видео готово: {FINAL_OUTPUT}")
